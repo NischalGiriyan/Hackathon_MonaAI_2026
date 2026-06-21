@@ -1,14 +1,18 @@
 # Globus Group — Invoice Agent
+Problem: 
+Invoice processing automation — Globus Group (St. Wendel)
+The Finance team is buried in supplier invoices and doing all sorting and data entry by hand.
+An Agent which takes the invoices from an email and categorizes them to send to the
+right department to make them confirm its valid.
 
+Solution:
 Multi-agent autonomous invoice processing pipeline. The Gemini API key is kept securely on the server via `.env` — it is never exposed to the browser.
 
 ## Project structure
 
 ```
-Hackathon_Q1/
-├── .env                  ← your API key goes here (never commit this)
+Q1/
 ├── .env.example          ← template to copy from
-├── .gitignore            ← excludes .env and node_modules
 ├── package.json
 ├── server/
 │   └── index.js          ← Express server + Gemini proxy endpoint
