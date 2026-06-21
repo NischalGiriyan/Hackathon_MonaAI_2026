@@ -1,0 +1,9 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Inter', sans-serif;
+  background: #060b14;
+  color: #e8edf5;
+  min-height: 100vh;
+  line-height: 1.6;
+}
+button { font-family: 'Inter', sans-serif; }

@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# Environment variables — contains secret API keys, never commit
+.env
+
+# Uploaded files (temporary, session-based)
+uploads/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Runtime
+pids/
+*.pid
