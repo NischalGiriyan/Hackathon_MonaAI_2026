@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Dr. Theiss — Customer Analytics Agent</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="agent.js"></script>
+<style>
+  :root {
+    --green:     #2e7d4f;
+    --green-lt:  #4caf72;
+    --green-bg:  #f0f7f3;
+    --amber:     #e8a020;
+    --red:       #d94040;
+    --blue:      #2459a8;
+    --grey:      #6b7280;
+    --border:    #d1d5db;
+    --bg:        #f8f9fb;
+    --white:     #ffffff;
+    --text:      #1a1d23;
+    --text-lt:   #4b5563;
+    --radius:    10px;
+    --shadow:    0 2px 10px rgba(0,0,0,.08);
+  }
+  *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); font-size:14px; }
+
+  /* ── Top bar ── */
+  .topbar {
+    background:var(--green); color:#fff; padding:14px 24px;
+    display:flex; align-items:center; gap:14px;
+    box-shadow:0 2px 8px rgba(0,0,0,.15);
+  }
+  .topbar-logo { font-size:22px; font-weight:700; letter-spacing:-.5px; }
+  .topbar-sub  { font-size:12px; opacity:.8; margin-top:2px; }
+  .topbar-badge {
+    margin-left:auto; background:rgba(255,255,255,.2);
+    border-radius:20px; padding:4px 12px; font-size:12px;
+  }
+
+  /* ── Layout ── */
+  .app { display:grid; grid-template-columns:1fr 360px; height:calc(100vh - 54px); overflow:hidden; }
+  .main { overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:18px; }
+  .chat-panel { border-left:1px solid var(--border); display:flex; flex-direction:column; background:var(--white); }
+
+  /* ── Upload bar ── */
+  .upload-bar {
+    background:var(--white); border:1px solid var(--border); border-radius:var(--radius);
+    padding:14px 18px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+  }
+  .upload-bar label { font-weight:600; color:var(--green); }
+  .upload-bar input[type=file] { font-size:13px; }
+  .btn {
+    padding:8px 18px; border-radius:7px; border:none; cursor:pointer;
+    font-size:13px; font-weight:600; transition:opacity .15s;
+  }
+  .btn:hover { opacity:.88; }
+  .btn-green  { background:var(--green); color:#fff; }
+  .btn-outline { background:transparent; border:2px solid var(--green); color:var(--green); }
+  .btn-sm     { padding:5px 13px; font-size:12px; }
+  .status-dot { width:10px; height:10px; border-radius:50%; background:#ccc; flex-shrink:0; }
+  .status-dot.ok { background:var(--green-lt); }
+  #statusText { font-size:12px; color:var(--grey); }
+
+  /* ── Stat cards ── */
+  .stat-row { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+  .stat-card {
+    background:var(--white); border:1px solid var(--border); border-radius:var(--radius);
+    padding:16px 18px; box-shadow:var(--shadow);
+  }
+  .stat-card .label { font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--grey); margin-bottom:6px; }
+  .stat-card .value { font-size:26px; font-weight:700; color:var(--green); }
+  .stat-card .sub   { font-size:12px; color:var(--text-lt); margin-top:3px; }
+
+  /* ── Section cards ── */
+  .card {
+    background:var(--white); border:1px solid var(--border); border-radius:var(--radius);
+    box-shadow:var(--shadow); overflow:hidden;
+  }
+  .card-header {
+    padding:12px 18px; background:var(--green-bg); border-bottom:1px solid var(--border);
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .card-header h3 { font-size:14px; font-weight:700; color:var(--green); }
+  .card-header span { font-size:11px; color:var(--grey); }
+  .card-body { padding:16px 18px; }
+
+  /* ── Charts grid ── */
+  .charts-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+  .chart-wrap { position:relative; height:220px; }
+
+  /* ── Tables ── */
+  .tbl-wrap { overflow-x:auto; max-height:280px; overflow-y:auto; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { background:var(--green-bg); color:var(--green); padding:8px 10px; text-align:left; font-size:12px; position:sticky; top:0; }
+  td { padding:7px 10px; border-bottom:1px solid #f0f0f0; }
+  tr:hover td { background:#fafcfb; }
+  .badge {
+    display:inline-block; padding:2px 9px; border-radius:20px; font-size:11px; font-weight:600;
+  }
+  .badge-green  { background:#dcf5e7; color:#1a6b3a; }
+  .badge-amber  { background:#fdf0d5; color:#8a5a00; }
+  .badge-red    { background:#fde8e8; color:#8b1a1a; }
+  .badge-blue   { background:#dbeafe; color:#1e3a8a; }
+  .badge-grey   { background:#f3f4f6; color:#374151; }
+
+  /* ── Targeting signals ── */
+  .signal-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:12px; }
+  .signal-card {
+    border:1px solid var(--border); border-radius:8px; padding:13px;
+    border-left:4px solid var(--green);
+  }
+  .signal-card.legs   { border-left-color: var(--blue); }
+  .signal-card.muscle { border-left-color: var(--amber); }
+  .signal-card.cough  { border-left-color: var(--grey); }
+  .signal-sku   { font-size:11px; color:var(--grey); }
+  .signal-prod  { font-weight:700; font-size:13px; margin:3px 0; }
+  .signal-seg   { font-size:12px; color:var(--text-lt); }
+  .signal-win   { font-size:11px; color:var(--green); margin-top:6px; font-style:italic; }
+
+  /* ── Lift section ── */
+  .lift-row { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:16px; }
+  .lift-card { text-align:center; padding:14px; background:var(--green-bg); border-radius:8px; }
+  .lift-card .lv { font-size:24px; font-weight:700; }
+  .lift-card .ll { font-size:11px; color:var(--grey); margin-top:4px; }
+  .lift-positive { color:var(--green); }
+  .lift-negative { color:var(--red); }
+
+  /* ── Narrative ── */
+  .narrative-box {
+    background:var(--green-bg); border:1px solid #b8dcc8; border-radius:8px;
+    padding:16px; font-size:13px; line-height:1.7; color:var(--text);
+    white-space:pre-wrap;
+  }
+  .narrative-loading { color:var(--grey); font-style:italic; }
+
+  /* ── Chat panel ── */
+  .chat-header {
+    padding:14px 16px; border-bottom:1px solid var(--border);
+    background:var(--green-bg);
+  }
+  .chat-header h3 { font-size:14px; font-weight:700; color:var(--green); }
+  .chat-header p  { font-size:11px; color:var(--grey); margin-top:2px; }
+  .chat-messages  { flex:1; overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:10px; }
+  .msg { max-width:92%; padding:10px 13px; border-radius:10px; font-size:13px; line-height:1.6; }
+  .msg-user { background:var(--green); color:#fff; align-self:flex-end; border-bottom-right-radius:3px; }
+  .msg-agent { background:#f0f2f5; color:var(--text); align-self:flex-start; border-bottom-left-radius:3px; }
+  .msg-agent.thinking { color:var(--grey); font-style:italic; }
+  .chat-input-row {
+    padding:12px; border-top:1px solid var(--border);
+    display:flex; gap:8px;
+  }
+  .chat-input {
+    flex:1; border:1px solid var(--border); border-radius:8px; padding:9px 12px;
+    font-size:13px; resize:none; font-family:inherit;
+    outline:none;
+  }
+  .chat-input:focus { border-color:var(--green); }
+  .chat-suggestions { padding:0 14px 10px; display:flex; flex-direction:column; gap:6px; }
+  .suggestion-chip {
+    background:var(--green-bg); border:1px solid #b8dcc8; border-radius:20px;
+    padding:5px 12px; font-size:12px; color:var(--green); cursor:pointer;
+    text-align:left; width:fit-content;
+  }
+  .suggestion-chip:hover { background:#d4eddf; }
+
+  /* ── Loading overlay ── */
+  .loading-overlay {
+    display:none; position:fixed; inset:0; background:rgba(255,255,255,.7);
+    z-index:999; align-items:center; justify-content:center; flex-direction:column; gap:12px;
+  }
+  .loading-overlay.active { display:flex; }
+  .spinner {
+    width:40px; height:40px; border:4px solid #d1d5db;
+    border-top-color:var(--green); border-radius:50%; animation:spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  /* ── Heatmap ── */
+  .heatmap-wrap { overflow-x:auto; }
+  .heatmap-table th,
+  .heatmap-table td { padding:5px 8px; text-align:center; font-size:11px; min-width:38px; }
+  .heatmap-table td { border-radius:4px; font-weight:600; }
+
+  @media (max-width:900px) {
+    .app { grid-template-columns:1fr; }
+    .chat-panel { display:none; }
+    .stat-row { grid-template-columns:repeat(2,1fr); }
+    .charts-grid { grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <div style="font-size:14px;color:var(--grey);">Running analytics…</div>
+</div>
+
+<!-- Top bar -->
+<div class="topbar">
+  <div>
+    <div class="topbar-logo">🌲 Allgäuer Latschenkiefer</div>
+    <div class="topbar-sub">Dr. Theiss Naturwaren GmbH — Customer Analytics Agent</div>
+  </div>
+  <div class="topbar-badge">Problem #7</div>
+</div>
+
+<!-- Main layout -->
+<div class="app">
+
+  <!-- ── Left: Dashboard ── -->
+  <div class="main" id="mainDash">
+
+    <!-- Upload / controls -->
+    <div class="upload-bar">
+      <label>📂 Load Data:</label>
+      <input type="file" id="csvUpload" accept=".csv" onchange="handleCSVUpload(event)"/>
+      <button class="btn btn-green btn-sm" onclick="loadSynthetic()">Use Synthetic Data</button>
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">No data loaded</span>
+    </div>
+
+    <!-- Stat cards -->
+    <div class="stat-row" id="statRow" style="display:none">
+      <div class="stat-card">
+        <div class="label">Total Transactions</div>
+        <div class="value" id="sTxn">—</div>
+        <div class="sub" id="sTxnSub"></div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Unique Customers</div>
+        <div class="value" id="sCust">—</div>
+        <div class="sub" id="sCustSub"></div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Total Revenue (€)</div>
+        <div class="value" id="sRev">—</div>
+        <div class="sub" id="sRevSub"></div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Campaign Lift</div>
+        <div class="value" id="sLift">—</div>
+        <div class="sub" id="sLiftSub"></div>
+      </div>
+    </div>
+
+    <!-- Charts row -->
+    <div class="charts-grid" id="chartsGrid" style="display:none">
+      <div class="card">
+        <div class="card-header"><h3>📊 RFM Segment Distribution</h3></div>
+        <div class="card-body"><div class="chart-wrap"><canvas id="rfmChart"></canvas></div></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h3>🏷️ Category Affinity</h3></div>
+        <div class="card-body"><div class="chart-wrap"><canvas id="affinityChart"></canvas></div></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h3>📅 Monthly Revenue by Line</h3></div>
+        <div class="card-body"><div class="chart-wrap"><canvas id="monthlyChart"></canvas></div></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h3>🌍 Revenue by Region</h3></div>
+        <div class="card-body"><div class="chart-wrap"><canvas id="regionChart"></canvas></div></div>
+      </div>
+    </div>
+
+    <!-- SKU Seasonality Heatmap -->
+    <div class="card" id="heatmapCard" style="display:none">
+      <div class="card-header">
+        <h3>🌡️ SKU × Month Heatmap (Sales Volume)</h3>
+        <span>Darker = higher volume</span>
+      </div>
+      <div class="card-body">
+        <div class="heatmap-wrap" id="heatmapWrap"></div>
+      </div>
+    </div>
+
+    <!-- RFM Table -->
+    <div class="card" id="rfmTableCard" style="display:none">
+      <div class="card-header">
+        <h3>👥 RFM Customer Table</h3>
+        <span id="rfmCount"></span>
+      </div>
+      <div class="card-body">
+        <div class="tbl-wrap">
+          <table id="rfmTable">
+            <thead>
+              <tr>
+                <th>Customer ID</th><th>Recency (days)</th><th>Frequency</th>
+                <th>Monetary (€)</th><th>R</th><th>F</th><th>M</th><th>Segment</th>
+              </tr>
+            </thead>
+            <tbody id="rfmBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Targeting Signals -->
+    <div class="card" id="signalsCard" style="display:none">
+      <div class="card-header">
+        <h3>🎯 Targeting Signals</h3>
+        <span>Segment × SKU × Optimal Send Window</span>
+      </div>
+      <div class="card-body">
+        <div class="signal-grid" id="signalGrid"></div>
+      </div>
+    </div>
+
+    <!-- Campaign Lift -->
+    <div class="card" id="liftCard" style="display:none">
+      <div class="card-header">
+        <h3>📈 Campaign Lift Measurement</h3>
+        <span>Treatment vs. Control</span>
+      </div>
+      <div class="card-body">
+        <div class="lift-row" id="liftSummary"></div>
+        <div class="tbl-wrap">
+          <table id="liftTable">
+            <thead>
+              <tr>
+                <th>SKU</th><th>Product</th>
+                <th>Avg Rev (Treatment €)</th><th>Avg Rev (Control €)</th>
+                <th>Lift %</th>
+              </tr>
+            </thead>
+            <tbody id="liftBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Narrative -->
+    <div class="card" id="narrativeCard" style="display:none">
+      <div class="card-header">
+        <h3>🤖 AI Targeting Strategy (Gemini)</h3>
+        <button class="btn btn-outline btn-sm" onclick="refreshNarrative()">Regenerate</button>
+      </div>
+      <div class="card-body">
+        <div class="narrative-box" id="narrativeBox">
+          <span class="narrative-loading">Click "Regenerate" to generate an AI-powered strategy summary…</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+
+  <!-- ── Right: Chat panel ── -->
+  <div class="chat-panel">
+    <div class="chat-header">
+      <h3>🤖 Analytics Agent Chat</h3>
+      <p>Ask questions about the customer data</p>
+    </div>
+    <div class="chat-messages" id="chatMessages">
+      <div class="msg msg-agent">
+        Hello! I'm your customer analytics agent for Allgäuer Latschenkiefer. Load data first, then ask me anything — e.g. "Which SKU has the best campaign lift?" or "When should we target Mobil Gel buyers?"
+      </div>
+    </div>
+    <div class="chat-suggestions" id="chatSuggestions">
+      <div style="font-size:11px;color:var(--grey);margin-bottom:2px;">Suggested questions:</div>
+      <button class="suggestion-chip" onclick="sendSuggestion(this)">Which segment has the highest revenue?</button>
+      <button class="suggestion-chip" onclick="sendSuggestion(this)">Best time to advertise Mobil Eisspray?</button>
+      <button class="suggestion-chip" onclick="sendSuggestion(this)">What does the campaign lift data show?</button>
+      <button class="suggestion-chip" onclick="sendSuggestion(this)">Which SKUs should we target in summer?</button>
+    </div>
+    <div class="chat-input-row">
+      <textarea class="chat-input" id="chatInput" rows="2"
+        placeholder="Ask about segments, SKUs, timing…"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}"></textarea>
+      <button class="btn btn-green" onclick="sendChat()">Send</button>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<script>
+// ── App state ──────────────────────────────────────────────────
+let APP = { transactions:[], analytics:null, charts:{} };
+
+// ── Load synthetic data ────────────────────────────────────────
+async function loadSynthetic() {
+  showLoading(true);
+  setTimeout(async ()=>{
+    const txns = generateSyntheticTransactions(800);
+    await processTransactions(txns, "Synthetic data loaded (800 transactions)");
+    showLoading(false);
+  }, 50);
+}
+
+// ── Handle CSV upload ──────────────────────────────────────────
+async function handleCSVUpload(event) {
+  const file = event.target.files[0];
+  if(!file) return;
+  showLoading(true);
+  const text = await file.text();
+  try {
+    const txns = parseCSV(text);
+    await processTransactions(txns, `CSV loaded: ${file.name} (${txns.length} rows)`);
+  } catch(e) {
+    alert("Error parsing CSV: "+e.message);
+  }
+  showLoading(false);
+}
+
+// ── Process transactions + render ─────────────────────────────
+async function processTransactions(txns, label) {
+  APP.transactions = txns;
+  APP.analytics    = await runAnalytics(txns);
+  setStatus(label, true);
+  renderDashboard(APP.analytics);
+}
+
+// ── Render everything ─────────────────────────────────────────
+function renderDashboard(a) {
+  const { rfm, patterns, signals, lift, rfmSummary, transactions } = a;
+
+  // Show sections
+  ["statRow","chartsGrid","heatmapCard","rfmTableCard","signalsCard","liftCard","narrativeCard"]
+    .forEach(id=>document.getElementById(id).style.display="");
+
+  // ── Stat cards
+  const totalRev = transactions.reduce((s,t)=>s+t.revenue,0);
+  const uniqCust = new Set(transactions.map(t=>t.customer_id)).size;
+  document.getElementById("sTxn").textContent    = transactions.length.toLocaleString();
+  document.getElementById("sCust").textContent   = uniqCust.toLocaleString();
+  document.getElementById("sRev").textContent    = "€"+totalRev.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,",");
+  document.getElementById("sLift").textContent   = (lift.liftPct>=0?"+":"")+lift.liftPct+"%";
+  document.getElementById("sLift").className     = "value "+(lift.liftPct>=0?"lift-positive":"lift-negative");
+  document.getElementById("sTxnSub").textContent = Object.keys(patterns.channelMap).join(", ");
+  document.getElementById("sCustSub").textContent= `${rfm.length} analysed`;
+  document.getElementById("sRevSub").textContent = `Avg €${(totalRev/transactions.length).toFixed(2)}/txn`;
+  document.getElementById("sLiftSub").textContent= `T:${lift.tCount} vs C:${lift.cCount}`;
+
+  // ── Charts
+  renderRFMChart(rfmSummary);
+  renderAffinityChart(patterns.affinitySummary);
+  renderMonthlyChart(transactions);
+  renderRegionChart(patterns.regionMap);
+
+  // ── Heatmap
+  renderHeatmap(patterns.skuMonthMap);
+
+  // ── RFM table (top 50)
+  document.getElementById("rfmCount").textContent = `${rfm.length} customers`;
+  const tbody = document.getElementById("rfmBody");
+  tbody.innerHTML = rfm.slice(0,50).map(r=>`
+    <tr>
+      <td>${r.customer_id}</td>
+      <td>${r.recency}</td>
+      <td>${r.frequency}</td>
+      <td>€${r.monetary}</td>
+      <td>${r.R}</td><td>${r.F}</td><td>${r.M}</td>
+      <td><span class="badge ${rfmBadgeClass(r.segment)}">${r.segment}</span></td>
+    </tr>`).join("");
+
+  // ── Targeting signals (top 12)
+  const lineClass = l => l==="Legs"?"legs":l==="Muscles/Joints"?"muscle":l==="Cough Drops"?"cough":"";
+  document.getElementById("signalGrid").innerHTML = signals.slice(0,12).map(s=>`
+    <div class="signal-card ${lineClass(s.line)}">
+      <div class="signal-sku">${s.sku} · ${s.line}</div>
+      <div class="signal-prod">${s.product}</div>
+      <div class="signal-seg">👥 ${s.segment}</div>
+      <div class="signal-seg">📅 Best month: <strong>${s.bestMonth}</strong> · €${s.revenue} rev</div>
+      <div class="signal-win">⏰ ${s.sendWindow}</div>
+    </div>`).join("");
+
+  // ── Lift summary
+  document.getElementById("liftSummary").innerHTML = `
+    <div class="lift-card">
+      <div class="lv ${lift.liftPct>=0?"lift-positive":"lift-negative"}">${lift.liftPct>=0?"+":""}${lift.liftPct}%</div>
+      <div class="ll">Overall Revenue Lift</div>
+    </div>
+    <div class="lift-card">
+      <div class="lv">€${lift.avgRevT}</div>
+      <div class="ll">Avg Rev / Treatment txn</div>
+    </div>
+    <div class="lift-card">
+      <div class="lv">€${lift.avgRevC}</div>
+      <div class="ll">Avg Rev / Control txn</div>
+    </div>`;
+
+  const liftTbody = document.getElementById("liftBody");
+  liftTbody.innerHTML = lift.skuLift.map(s=>`
+    <tr>
+      <td>${s.sku}</td>
+      <td>${s.name}</td>
+      <td>€${s.avgRevenueT}</td>
+      <td>€${s.avgRevenueC}</td>
+      <td><span class="badge ${s.liftPct>=0?"badge-green":"badge-red"}">${s.liftPct>=0?"+":""}${s.liftPct}%</span></td>
+    </tr>`).join("");
+}
+
+// ── Chart renderers ────────────────────────────────────────────
+function destroyChart(id) { if(APP.charts[id]) { APP.charts[id].destroy(); delete APP.charts[id]; } }
+
+function renderRFMChart(rfmSummary) {
+  destroyChart("rfm");
+  const colors = ["#2e7d4f","#4caf72","#2459a8","#e8a020","#d94040","#6b7280"];
+  const labels = Object.keys(rfmSummary);
+  const data   = Object.values(rfmSummary);
+  APP.charts["rfm"] = new Chart(document.getElementById("rfmChart"),{
+    type:"doughnut",
+    data:{ labels, datasets:[{ data, backgroundColor:colors, borderWidth:2, borderColor:"#fff" }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:"right", labels:{font:{size:11}} } } }
+  });
+}
+
+function renderAffinityChart(aff) {
+  destroyChart("aff");
+  const colors = {"Feet":"#2e7d4f","Legs":"#2459a8","Muscles/Joints":"#e8a020","Cough Drops":"#6b7280"};
+  const labels = Object.keys(aff);
+  APP.charts["aff"] = new Chart(document.getElementById("affinityChart"),{
+    type:"bar",
+    data:{ labels, datasets:[{
+      label:"Customers by dominant line",
+      data:Object.values(aff),
+      backgroundColor:labels.map(l=>colors[l]||"#ccc"),
+      borderRadius:6
+    }]},
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false} },
+      scales:{ y:{beginAtZero:true, ticks:{font:{size:11}}}, x:{ticks:{font:{size:11}}} }
+    }
+  });
+}
+
+function renderMonthlyChart(transactions) {
+  destroyChart("monthly");
+  const lines  = ["Feet","Legs","Muscles/Joints","Cough Drops"];
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const lineColors = { "Feet":"#2e7d4f","Legs":"#2459a8","Muscles/Joints":"#e8a020","Cough Drops":"#6b7280" };
+  const matrix = {};
+  lines.forEach(l=>{ matrix[l]=Array(12).fill(0); });
+  transactions.forEach(t=>{ if(matrix[t.line]) matrix[t.line][t.month-1]+=t.revenue; });
+
+  APP.charts["monthly"] = new Chart(document.getElementById("monthlyChart"),{
+    type:"line",
+    data:{ labels:months, datasets: lines.map(l=>({
+      label:l, data:matrix[l].map(v=>parseFloat(v.toFixed(2))),
+      borderColor:lineColors[l], backgroundColor:lineColors[l]+"22",
+      tension:.35, fill:false, pointRadius:3
+    }))},
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ labels:{font:{size:11}} } },
+      scales:{ y:{beginAtZero:true, ticks:{font:{size:11}}}, x:{ticks:{font:{size:11}}} }
+    }
+  });
+}
+
+function renderRegionChart(regionMap) {
+  destroyChart("region");
+  const sorted = Object.entries(regionMap).sort((a,b)=>b[1]-a[1]);
+  APP.charts["region"] = new Chart(document.getElementById("regionChart"),{
+    type:"bar",
+    data:{ labels:sorted.map(r=>r[0]), datasets:[{
+      label:"Revenue (€)", data:sorted.map(r=>parseFloat(r[1].toFixed(2))),
+      backgroundColor:"#2459a8", borderRadius:5
+    }]},
+    options:{ indexAxis:"y", responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false} },
+      scales:{ x:{beginAtZero:true,ticks:{font:{size:11}}}, y:{ticks:{font:{size:11}}} }
+    }
+  });
+}
+
+function renderHeatmap(skuMonthMap) {
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const skus   = PRODUCT_CATALOGUE;
+
+  // Find max value for colour scale
+  let maxVal = 0;
+  skus.forEach(p=>{ const row=skuMonthMap[p.sku]||[]; row.forEach(v=>{ if(v>maxVal) maxVal=v; }); });
+
+  const cellColor = v => {
+    if(!v) return "#f8f9fb";
+    const t = v/maxVal;
+    const r = Math.round(46+(t*(46-46)));
+    const g = Math.round(125+(t*(125-50)));
+    const b = Math.round(79+(t*(79-20)));
+    const alpha = 0.12 + t*0.88;
+    return `rgba(46,125,79,${alpha.toFixed(2)})`;
+  };
+  const textColor = v => (v/maxVal)>0.5 ? "#fff" : "#1a1d23";
+
+  let html = `<table class="heatmap-table"><thead><tr>
+    <th style="text-align:left;min-width:160px">Product</th>
+    ${months.map(m=>`<th>${m}</th>`).join("")}
+  </tr></thead><tbody>`;
+
+  skus.forEach(p=>{
+    const row = skuMonthMap[p.sku]||Array(12).fill(0);
+    html += `<tr><td style="text-align:left;font-size:11px;white-space:nowrap">${p.name}</td>
+      ${row.map(v=>`<td style="background:${cellColor(v)};color:${textColor(v)}">${v||""}</td>`).join("")}
+    </tr>`;
+  });
+
+  html += "</tbody></table>";
+  document.getElementById("heatmapWrap").innerHTML = html;
+}
+
+// ── AI narrative ───────────────────────────────────────────────
+async function refreshNarrative() {
+  if(!APP.analytics) { alert("Load data first."); return; }
+  const box = document.getElementById("narrativeBox");
+  box.innerHTML = `<span class="narrative-loading">Generating strategy with Gemini…</span>`;
+  const { signals, rfmSummary, lift } = APP.analytics;
+  const text = await generateTargetingNarrative(signals, rfmSummary, lift);
+  box.textContent = text;
+}
+
+// ── Chat ───────────────────────────────────────────────────────
+async function sendChat() {
+  const input = document.getElementById("chatInput");
+  const msg   = input.value.trim();
+  if(!msg) return;
+  input.value = "";
+  appendMsg(msg, "user");
+
+  if(!APP.analytics) {
+    appendMsg("Please load data first before asking questions.", "agent");
+    return;
+  }
+
+  const thinking = appendMsg("Thinking…", "agent thinking");
+  const { rfmSummary, signals, lift, patterns } = APP.analytics;
+  const context = { rfmSummary, topSignals:signals.slice(0,10), lift:{ liftPct:lift.liftPct, skuLift:lift.skuLift.slice(0,5) }, affinitySummary:patterns.affinitySummary, regionRevenue:patterns.regionMap };
+  const reply = await agentChat(msg, context);
+  thinking.remove();
+  appendMsg(reply, "agent");
+}
+
+function sendSuggestion(btn) {
+  document.getElementById("chatInput").value = btn.textContent;
+  sendChat();
+}
+
+function appendMsg(text, type) {
+  const div = document.createElement("div");
+  div.className = `msg msg-${type.split(" ")[0]}`;
+  if(type.includes("thinking")) div.classList.add("thinking");
+  div.textContent = text;
+  const container = document.getElementById("chatMessages");
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  return div;
+}
+
+// ── Helpers ────────────────────────────────────────────────────
+function rfmBadgeClass(seg) {
+  const m = { "Champions":"badge-green","Loyal Customers":"badge-green","Recent Customers":"badge-blue",
+    "At Risk":"badge-red","Lost / Hibernating":"badge-red","Potential Loyalists":"badge-amber" };
+  return m[seg]||"badge-grey";
+}
+function setStatus(msg, ok) {
+  document.getElementById("statusText").textContent = msg;
+  document.getElementById("statusDot").className = "status-dot"+(ok?" ok":"");
+}
+function showLoading(v) { document.getElementById("loadingOverlay").classList.toggle("active",v); }
+</script>
+</body>
+</html>

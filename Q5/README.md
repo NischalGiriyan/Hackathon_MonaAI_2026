@@ -50,7 +50,7 @@ Browser opens automatically at `http://localhost:3000`
 
 ## Project structure
 ```
-interview-support/
+Q5/
 ├── server/
 │   ├── index.js        ← Express backend + Gemini API calls
 │   └── package.json
