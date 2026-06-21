@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Globus Group — Invoice Agent</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="logo"><span class="logo-dot"></span>Globus Group</div>
+        <div class="logo-sub">Invoice Agent · St. Wendel</div>
+      </div>
+      <nav class="nav">
+        <div class="nav-section">Inbox</div>
+        <div class="nav-item active" data-view="inbox">
+          <span class="icon">📥</span> Email inbox
+          <span class="badge" id="badge-inbox">0</span>
+        </div>
+        <div class="nav-item" data-view="routed">
+          <span class="icon">📤</span> Routed
+          <span class="badge green" id="badge-routed">0</span>
+        </div>
+        <div class="nav-item" data-view="flagged">
+          <span class="icon">⚠️</span> Needs review
+          <span class="badge orange" id="badge-flagged">0</span>
+        </div>
+        <div class="nav-section">By Department</div>
+        <div class="nav-item" data-view="it"><span class="icon">💻</span> IT<span class="badge dept-badge" id="badge-it" style="display:none">0</span></div>
+        <div class="nav-item" data-view="facilities"><span class="icon">🏢</span> Facilities<span class="badge dept-badge" id="badge-facilities" style="display:none">0</span></div>
+        <div class="nav-item" data-view="hr"><span class="icon">👥</span> HR<span class="badge dept-badge" id="badge-hr" style="display:none">0</span></div>
+        <div class="nav-item" data-view="logistics"><span class="icon">🚚</span> Logistics<span class="badge dept-badge" id="badge-logistics" style="display:none">0</span></div>
+        <div class="nav-item" data-view="finance"><span class="icon">💰</span> Finance<span class="badge dept-badge" id="badge-finance" style="display:none">0</span></div>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div class="topbar-title" id="topbar-title">All invoices</div>
+        <div class="agent-pill" id="agent-status">
+          <span class="dot"></span> Agents ready
+        </div>
+      </div>
+
+      <div class="content" id="main-content">
+        <div class="empty-msg">Upload an invoice PDF, DOCX, or image below to begin.<br><span style="font-size:12px;opacity:.7">The AI agent will extract, classify, and make an autonomous approval decision.</span></div>
+      </div>
+
+      <div class="action-bar">
+        <div id="file-chips-area"></div>
+        <div class="upload-area" id="upload-area">
+          <input type="file" id="file-input" accept=".pdf,.png,.jpg,.jpeg,.txt,.docx" multiple hidden />
+          <button class="btn-outline" onclick="document.getElementById('file-input').click()">
+            📎 Upload invoice (PDF / DOCX / PNG / JPG)
+          </button>
+          <span class="sep">or</span>
+          <textarea id="email-text" placeholder="Paste email body / invoice text here…" rows="2"></textarea>
+          <button class="btn-primary" id="process-btn">Run agents ▶</button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
+  <script src="agents.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
